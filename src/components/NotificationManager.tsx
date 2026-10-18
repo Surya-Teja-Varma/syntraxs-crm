@@ -21,21 +21,19 @@ export function NotificationManager({ leads, currentUser, onUpdateLead }: Notifi
     const notificationInterval = useRef<NodeJS.Timeout | null>(null);
     const remindedLeads = useRef<Set<string>>(new Set());
     const isInitialLeadsLoadRef = useRef<boolean>(true);
-    const notifiedInterestedKeysRef = useRef<Set<string>>(new Set());
+    const previousLeadsStatusRef = useRef<Map<string, string>>(new Map());
+    const sessionLoginTimeRef = useRef<number>(Date.now());
     const [activeReminder, setActiveReminder] = useState<ActiveReminder | null>(null);
 
     // Live listener: When a salesperson hits "Interested", Admin gets notification with sound
     useEffect(() => {
         if (!leads || leads.length === 0) return;
 
+        // Baseline initialization on page mount / login: Never alert on old existing leads
         if (isInitialLeadsLoadRef.current) {
             isInitialLeadsLoadRef.current = false;
-            // Record existing interested leads so initial page loads do not play sound
             leads.forEach(lead => {
-                if (lead.status === 'interested') {
-                    const key = `${lead.id}_${lead.interestedAt || lead.createdAt || 'initial'}`;
-                    notifiedInterestedKeysRef.current.add(key);
-                }
+                previousLeadsStatusRef.current.set(lead.id, lead.status);
             });
             return;
         }
@@ -43,37 +41,47 @@ export function NotificationManager({ leads, currentUser, onUpdateLead }: Notifi
         // Live real-time detection for Admin
         if (currentUser.role === 'admin') {
             leads.forEach(lead => {
-                if (lead.status === 'interested') {
-                    const key = `${lead.id}_${lead.interestedAt || 'interested_status'}`;
-                    if (!notifiedInterestedKeysRef.current.has(key)) {
-                        notifiedInterestedKeysRef.current.add(key);
+                const prevStatus = previousLeadsStatusRef.current.get(lead.id);
+                const isNowInterested = lead.status === 'interested';
+                const isStatusTransition = isNowInterested && prevStatus !== 'interested';
 
-                        const repName = lead.interestedByName || lead.assignedToName || 'Sales Representative';
-                        const compName = lead.companyName || 'Unknown Client';
-                        const clientName = lead.contactName || 'Contact';
+                // Only alert if this interest event happened during this active session (after login)
+                const interestedTimestamp = lead.interestedAt ? new Date(lead.interestedAt).getTime() : 0;
+                const isLiveEvent = interestedTimestamp > 0 && interestedTimestamp >= (sessionLoginTimeRef.current - 5000);
 
-                        // 1. Play real-time notification sound chime
-                        playNotificationSound(0.5);
+                if (isStatusTransition && isLiveEvent) {
+                    const repName = lead.interestedByName || lead.assignedToName || 'Sales Representative';
+                    const compName = lead.companyName || 'Unknown Client';
+                    const clientName = lead.contactName || 'Contact';
 
-                        // 2. High-visibility in-app toast
-                        toast.success(`💡 Client Interested: ${compName}`, {
-                            description: `${repName} marked ${clientName} (${compName}) as Interested!`,
-                            duration: 9000,
-                        });
+                    // 1. Play real-time notification sound chime
+                    playNotificationSound(0.5);
 
-                        // 3. Desktop browser notification
-                        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                            try {
-                                const n = new Notification(`💡 Client Interested: ${compName}`, {
-                                    body: `${repName} marked ${clientName} as Interested!\nPhone: ${lead.phone || 'N/A'}`,
-                                    icon: '/favicon.png',
-                                    tag: `interest-${lead.id}-${Date.now()}`,
-                                });
-                                n.onclick = () => window.focus();
-                            } catch {}
-                        }
+                    // 2. High-visibility in-app toast
+                    toast.success(`💡 Client Interested: ${compName}`, {
+                        description: `${repName} marked ${clientName} (${compName}) as Interested!`,
+                        duration: 9000,
+                    });
+
+                    // 3. Desktop browser notification
+                    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                        try {
+                            const n = new Notification(`💡 Client Interested: ${compName}`, {
+                                body: `${repName} marked ${clientName} as Interested!\nPhone: ${lead.phone || 'N/A'}`,
+                                icon: '/favicon.png',
+                                tag: `interest-${lead.id}-${Date.now()}`,
+                            });
+                            n.onclick = () => window.focus();
+                        } catch {}
                     }
                 }
+
+                // Update baseline status
+                previousLeadsStatusRef.current.set(lead.id, lead.status);
+            });
+        } else {
+            leads.forEach(lead => {
+                previousLeadsStatusRef.current.set(lead.id, lead.status);
             });
         }
     }, [leads, currentUser.role]);
