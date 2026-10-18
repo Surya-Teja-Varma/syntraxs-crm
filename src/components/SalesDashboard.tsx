@@ -390,11 +390,33 @@ export function SalesDashboard({
       case 'low':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
 
+
+  const handleMarkInterested = (lead: Lead) => {
+    const nowIso = new Date().toISOString();
+    const repName = user.name || 'Sales Rep';
+
+    onUpdateLead(lead.id, {
+      status: 'interested',
+      interestedAt: nowIso,
+      interestedBy: user.id,
+      interestedByName: repName,
+      lastContact: nowIso,
+    });
+
+    onAddActivity({
+      userId: user.id,
+      leadId: lead.id,
+      type: 'note',
+      description: `${repName} marked client ${lead.contactName} (${lead.companyName}) as Interested`,
+    });
+
+    toast.success(`Marked ${lead.companyName} as Interested! Admin has been notified.`);
+  };
 
   const handleOpenEditDialog = (lead: Lead) => {
     setEditingLead({ ...lead });
@@ -411,6 +433,11 @@ export function SalesDashboard({
         // Check each field for changes
         if (editingLead.status !== originalLead.status) {
           updates.status = editingLead.status;
+          if (editingLead.status === 'interested') {
+            updates.interestedAt = new Date().toISOString();
+            updates.interestedBy = user.id;
+            updates.interestedByName = user.name || 'Sales Rep';
+          }
         }
         if (editingLead.value !== originalLead.value) {
           updates.value = editingLead.value;
@@ -436,6 +463,14 @@ export function SalesDashboard({
         // Only update if there are changes
         if (Object.keys(updates).length > 0) {
           onUpdateLead(editingLead.id, updates);
+          if (updates.status === 'interested') {
+            onAddActivity({
+              userId: user.id,
+              leadId: editingLead.id,
+              type: 'note',
+              description: `${user.name || 'Sales Rep'} marked client ${editingLead.contactName} (${editingLead.companyName}) as Interested`,
+            });
+          }
           toast.success(`Lead updated successfully (${Object.keys(updates).length} field${Object.keys(updates).length > 1 ? 's' : ''} changed)`);
         } else {
           toast.info('No changes detected');
@@ -836,7 +871,7 @@ export function SalesDashboard({
                         <TableHead className="min-w-[140px]">Last Contact</TableHead>
                         <TableHead className="min-w-[140px]">Next Follow-up</TableHead>
                         <TableHead className="min-w-[140px]">Call Log</TableHead>
-                        <TableHead className="min-w-[100px]">Actions</TableHead>
+                        <TableHead className="min-w-[140px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -966,14 +1001,32 @@ export function SalesDashboard({
                               </DialogContent>
                             </Dialog>
                           </TableCell>
-                          <TableCell className="min-w-[100px]">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEditDialog(lead)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                          <TableCell className="min-w-[140px]">
+                            <div className="flex items-center space-x-1.5">
+                              {lead.status === 'interested' ? (
+                                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 text-xs font-semibold py-1 px-2 border-emerald-500/30 whitespace-nowrap" title={lead.interestedByName ? `Marked by ${lead.interestedByName}` : 'Interested'}>
+                                  💡 Interested ✓
+                                </Badge>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 border-amber-500/40 bg-amber-500/10 text-amber-700 hover:bg-amber-500/20 text-xs font-medium whitespace-nowrap"
+                                  onClick={() => handleMarkInterested(lead)}
+                                  title={`Mark ${lead.companyName} as Interested (triggers Admin notification with sound)`}
+                                >
+                                  💡 Interest
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditDialog(lead)}
+                                title="Edit Lead"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

@@ -235,7 +235,7 @@ export function Login({ onLogin }: LoginProps) {
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                 Quick Test Accounts (1-Click)
               </CardTitle>
-              <CardDescription className="text-[11px] text-gray-500">
+              <CardDescription className="text-xs text-gray-600 font-medium">
                 Click any account to populate email & password
               </CardDescription>
             </CardHeader>
@@ -248,8 +248,8 @@ export function Login({ onLogin }: LoginProps) {
                     onClick={() => handleSelectQuickAccount(account)}
                     className="text-left p-2 rounded-lg bg-[#F5F6F8] hover:bg-gray-200/70 transition-colors border border-gray-200/60"
                   >
-                    <div className="text-xs font-semibold text-gray-800 truncate">{account.label}</div>
-                    <div className="text-[11px] text-gray-500 truncate">{account.email}</div>
+                    <div className="text-xs font-semibold text-gray-900 truncate">{account.label}</div>
+                    <div className="text-xs text-gray-600 truncate">{account.email}</div>
                   </button>
                 ))}
               </div>

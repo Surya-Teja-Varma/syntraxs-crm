@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Volume2, Lightbulb } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import {
@@ -9,6 +9,8 @@ import {
 } from './ui/popover';
 import { Lead, User } from '../types';
 import { formatDate } from '../utils/helpers';
+import { playNotificationSound } from '../utils/soundService';
+import { toast } from 'sonner';
 
 interface NotificationBellProps {
     leads: Lead[];
@@ -86,7 +88,24 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
         return overdue;
     }, [leads, currentUser.id, currentUser.role]);
 
-    const totalCount = upcomingFollowUps.length + overdueFollowUps.length;
+    // Find interested leads for Admin
+    const interestedLeads = useMemo(() => {
+        if (currentUser.role !== 'admin') return [];
+        return leads
+            .filter(lead => lead.status === 'interested')
+            .sort((a, b) => {
+                const tA = a.interestedAt ? new Date(a.interestedAt).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+                const tB = b.interestedAt ? new Date(b.interestedAt).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+                return tB - tA;
+            });
+    }, [leads, currentUser.role]);
+
+    const totalCount = upcomingFollowUps.length + overdueFollowUps.length + interestedLeads.length;
+
+    const handleTestSound = () => {
+        playNotificationSound();
+        toast.info("Testing notification chime sound 🔔");
+    };
 
     const getOverdueReasonText = (reason: 'dismissed' | 'no_action') => {
         return reason === 'dismissed' ? 'Dismissed by Sales' : 'No Action Taken';
@@ -99,7 +118,7 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
                     variant="ghost"
                     className="relative rounded-full h-9 w-9 p-0 text-foreground"
                 >
-                    <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    <Bell className="h-5 w-5 text-foreground" />
                     {totalCount > 0 && (
                         <Badge
                             variant="destructive"
@@ -112,7 +131,25 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
             </PopoverTrigger>
             <PopoverContent className="w-96" align="end">
                 <div className="space-y-4">
-                    <h4 className="font-semibold text-sm">Notifications</h4>
+                    <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-sm flex items-center gap-1.5">
+                            Notifications
+                            {interestedLeads.length > 0 && (
+                                <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 text-[10px] font-bold">
+                                    {interestedLeads.length} Interested
+                                </Badge>
+                            )}
+                        </h4>
+                        <button
+                            type="button"
+                            onClick={handleTestSound}
+                            className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-muted transition-colors"
+                            title="Test alert sound"
+                        >
+                            <Volume2 className="h-3 w-3" />
+                            <span>Test Sound</span>
+                        </button>
+                    </div>
 
                     {totalCount === 0 ? (
                         <p className="text-sm text-muted-foreground py-4 text-center">
@@ -120,6 +157,38 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
                         </p>
                     ) : (
                         <div className="space-y-4 max-h-96 overflow-y-auto">
+                            {/* Interested Clients Section for Admin */}
+                            {interestedLeads.length > 0 && (
+                                <div className="space-y-2">
+                                    <h5 className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1">
+                                        <Lightbulb className="h-3.5 w-3.5" /> Interested Clients ({interestedLeads.length})
+                                    </h5>
+                                    <div className="space-y-2">
+                                        {interestedLeads.slice(0, 10).map((lead) => (
+                                            <div
+                                                key={lead.id}
+                                                className="p-3 border rounded-lg space-y-1 bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10 transition-colors"
+                                            >
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex-1">
+                                                        <p className="font-semibold text-sm text-foreground">{lead.companyName}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Contact: {lead.contactName} {lead.phone ? `(${lead.phone})` : ''}
+                                                        </p>
+                                                        <p className="text-xs text-amber-700 font-medium mt-0.5">
+                                                            Marked by: {lead.interestedByName || lead.assignedToName || 'Sales Rep'}
+                                                        </p>
+                                                    </div>
+                                                    <Badge variant="outline" className="border-amber-500/30 text-amber-700 text-[10px]">
+                                                        💡 Interested
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Upcoming Follow-ups Section */}
                             {upcomingFollowUps.length > 0 && (
                                 <div className="space-y-2">

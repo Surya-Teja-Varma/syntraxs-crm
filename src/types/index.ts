@@ -39,6 +39,9 @@ export interface Lead {
   followUpRemindedAt?: string;
   followUpCompletedAt?: string;
   followUpOverdueReason?: 'dismissed' | 'no_action' | null;
+  interestedAt?: string;
+  interestedBy?: string;
+  interestedByName?: string;
 }
 
 export interface Target {

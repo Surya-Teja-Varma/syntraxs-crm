@@ -325,12 +325,12 @@ export function AdminDashboard({
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="flex w-full justify-between min-w-0">
-            <TabsTrigger value="overview" className="flex-1 min-w-0 text-base sm:text-base font-medium" style={{ color: '#000000' }}>Overview</TabsTrigger>
-            <TabsTrigger value="leads" className="flex-1 min-w-0 text-base sm:text-base font-medium" style={{ color: '#000000' }}>Lead Management</TabsTrigger>
-            <TabsTrigger value="team" className="flex-1 min-w-0 text-base sm:text-base font-medium" style={{ color: '#000000' }}>Team Performance</TabsTrigger>
-            <TabsTrigger value="revenue" className="flex-1 min-w-0 text-base sm:text-base font-medium" style={{ color: '#000000' }}>Revenue Analytics</TabsTrigger>
-            <TabsTrigger value="targets" className="flex-1 min-w-0 text-base sm:text-base font-medium" style={{ color: '#000000' }}>Targets</TabsTrigger>
-            <TabsTrigger value="reports" className="flex-1 min-w-0 text-base sm:text-base font-medium" style={{ color: '#000000' }}>Reports</TabsTrigger>
+            <TabsTrigger value="overview" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Overview</TabsTrigger>
+            <TabsTrigger value="leads" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Lead Management</TabsTrigger>
+            <TabsTrigger value="team" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Team Performance</TabsTrigger>
+            <TabsTrigger value="revenue" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Revenue Analytics</TabsTrigger>
+            <TabsTrigger value="targets" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Targets</TabsTrigger>
+            <TabsTrigger value="reports" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Reports</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">

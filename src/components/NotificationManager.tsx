@@ -4,6 +4,7 @@ import { messaging } from '../config/firebase';
 import { Lead, User } from '../types';
 import { toast } from 'sonner';
 import { FollowUpReminderPopup } from './FollowUpReminderPopup';
+import { playNotificationSound } from '../utils/soundService';
 
 interface NotificationManagerProps {
     leads: Lead[];
@@ -19,7 +20,63 @@ interface ActiveReminder {
 export function NotificationManager({ leads, currentUser, onUpdateLead }: NotificationManagerProps) {
     const notificationInterval = useRef<NodeJS.Timeout | null>(null);
     const remindedLeads = useRef<Set<string>>(new Set());
+    const isInitialLeadsLoadRef = useRef<boolean>(true);
+    const notifiedInterestedKeysRef = useRef<Set<string>>(new Set());
     const [activeReminder, setActiveReminder] = useState<ActiveReminder | null>(null);
+
+    // Live listener: When a salesperson hits "Interested", Admin gets notification with sound
+    useEffect(() => {
+        if (!leads || leads.length === 0) return;
+
+        if (isInitialLeadsLoadRef.current) {
+            isInitialLeadsLoadRef.current = false;
+            // Record existing interested leads so initial page loads do not play sound
+            leads.forEach(lead => {
+                if (lead.status === 'interested') {
+                    const key = `${lead.id}_${lead.interestedAt || lead.createdAt || 'initial'}`;
+                    notifiedInterestedKeysRef.current.add(key);
+                }
+            });
+            return;
+        }
+
+        // Live real-time detection for Admin
+        if (currentUser.role === 'admin') {
+            leads.forEach(lead => {
+                if (lead.status === 'interested') {
+                    const key = `${lead.id}_${lead.interestedAt || 'interested_status'}`;
+                    if (!notifiedInterestedKeysRef.current.has(key)) {
+                        notifiedInterestedKeysRef.current.add(key);
+
+                        const repName = lead.interestedByName || lead.assignedToName || 'Sales Representative';
+                        const compName = lead.companyName || 'Unknown Client';
+                        const clientName = lead.contactName || 'Contact';
+
+                        // 1. Play real-time notification sound chime
+                        playNotificationSound(0.5);
+
+                        // 2. High-visibility in-app toast
+                        toast.success(`💡 Client Interested: ${compName}`, {
+                            description: `${repName} marked ${clientName} (${compName}) as Interested!`,
+                            duration: 9000,
+                        });
+
+                        // 3. Desktop browser notification
+                        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                            try {
+                                const n = new Notification(`💡 Client Interested: ${compName}`, {
+                                    body: `${repName} marked ${clientName} as Interested!\nPhone: ${lead.phone || 'N/A'}`,
+                                    icon: '/favicon.png',
+                                    tag: `interest-${lead.id}-${Date.now()}`,
+                                });
+                                n.onclick = () => window.focus();
+                            } catch {}
+                        }
+                    }
+                }
+            });
+        }
+    }, [leads, currentUser.role]);
 
     // Filter leads based on user role
     const relevantLeads = useMemo(() => {
