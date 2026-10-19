@@ -40,6 +40,8 @@ export function NotificationManager({ leads, currentUser, onUpdateLead }: Notifi
 
         // Live real-time detection for Admin
         if (currentUser.role === 'admin') {
+            const liveEvents: Lead[] = [];
+
             leads.forEach(lead => {
                 const prevStatus = previousLeadsStatusRef.current.get(lead.id);
                 const isNowInterested = lead.status === 'interested';
@@ -50,6 +52,16 @@ export function NotificationManager({ leads, currentUser, onUpdateLead }: Notifi
                 const isLiveEvent = interestedTimestamp > 0 && interestedTimestamp >= (sessionLoginTimeRef.current - 5000);
 
                 if (isStatusTransition && isLiveEvent) {
+                    liveEvents.push(lead);
+                }
+
+                // Update baseline status
+                previousLeadsStatusRef.current.set(lead.id, lead.status);
+            });
+
+            // Show one after one, 2.8s apart, auto-dismissing in 2.5s
+            liveEvents.forEach((lead, idx) => {
+                setTimeout(() => {
                     const repName = lead.interestedByName || lead.assignedToName || 'Sales Representative';
                     const compName = lead.companyName || 'Unknown Client';
                     const clientName = lead.contactName || 'Contact';
@@ -57,10 +69,10 @@ export function NotificationManager({ leads, currentUser, onUpdateLead }: Notifi
                     // 1. Play real-time notification sound chime
                     playNotificationSound(0.5);
 
-                    // 2. High-visibility in-app toast (auto-dismisses in 3s)
+                    // 2. High-visibility in-app toast (auto-dismisses in 2.5s)
                     toast.success(`💡 Client Interested: ${compName}`, {
                         description: `${repName} marked ${clientName} (${compName}) as Interested!`,
-                        duration: 3000,
+                        duration: 2500,
                     });
 
                     // 3. Desktop browser notification
@@ -74,10 +86,7 @@ export function NotificationManager({ leads, currentUser, onUpdateLead }: Notifi
                             n.onclick = () => window.focus();
                         } catch {}
                     }
-                }
-
-                // Update baseline status
-                previousLeadsStatusRef.current.set(lead.id, lead.status);
+                }, idx * 2800);
             });
         } else {
             leads.forEach(lead => {
