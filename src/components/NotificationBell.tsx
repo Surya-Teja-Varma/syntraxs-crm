@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Bell, Volume2, Lightbulb, Play, Check, Settings, Sparkles, Phone, X, Clock, AlertTriangle,
+  Trash2, CheckCircle2, RotateCcw,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -30,12 +31,64 @@ interface OverdueFollowUp {
   reason: 'dismissed' | 'no_action';
 }
 
+const CLEARED_NOTIFS_KEY = 'crm_cleared_notifications';
+
+function getStoredClearedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CLEARED_NOTIFS_KEY);
+    if (!raw) return new Set<string>();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set<string>(parsed) : new Set<string>();
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function saveClearedIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(CLEARED_NOTIFS_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    console.error('Failed to save cleared notifications', e);
+  }
+}
+
 export function NotificationBell({ leads, currentUser, onUpdateLead }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [clearedIds, setClearedIds] = useState<Set<string>>(() => getStoredClearedIds());
   const [activeTab, setActiveTab] = useState<'all' | 'interested' | 'followups' | 'sounds'>('all');
   const [showAllItems, setShowAllItems] = useState(false);
   const [selectedSound, setSelectedSound] = useState(() => soundService.getSelectedPresetId());
   const [playingPresetId, setPlayingPresetId] = useState<string | null>(null);
+
+  const handleDismissOne = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClearedIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      saveClearedIds(next);
+      return next;
+    });
+    toast.success('Notification dismissed', { duration: 2000 });
+  };
+
+  const handleClearAll = () => {
+    const allIds = allNotifications.map((n) => n.id);
+    setClearedIds((prev) => {
+      const next = new Set(prev);
+      allIds.forEach((id) => next.add(id));
+      saveClearedIds(next);
+      return next;
+    });
+    toast.success('All notifications cleared', { duration: 2500 });
+  };
+
+  const handleRestoreCleared = () => {
+    setClearedIds(new Set());
+    try {
+      localStorage.removeItem(CLEARED_NOTIFS_KEY);
+    } catch {}
+    toast.success('Notifications restored', { duration: 2000 });
+  };
 
   // Filter leads based on user role and find upcoming follow-ups
   const upcomingFollowUps = useMemo(() => {
@@ -96,8 +149,6 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
       });
   }, [leads, currentUser.role]);
 
-  const totalCount = upcomingFollowUps.length + overdueFollowUps.length + interestedLeads.length;
-
   const handleSelectSound = (presetId: string, presetName: string, icon: string) => {
     soundService.setSelectedPresetId(presetId);
     setSelectedSound(presetId);
@@ -106,7 +157,7 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
     setTimeout(() => setPlayingPresetId(null), 1200);
     toast.success(`Active tone set: ${icon} ${presetName}`, {
       description: "Incoming 'Interested' client alerts will play this sound.",
-      duration: 3500,
+      duration: 3000,
     });
   };
 
@@ -162,7 +213,13 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
     })),
   ];
 
-  const filteredNotifications = allNotifications.filter((item) => {
+  // Active (non-cleared) notifications
+  const activeNotifications = allNotifications.filter((item) => !clearedIds.has(item.id));
+  const activeInterest = activeNotifications.filter((item) => item.type === 'interested');
+  const activeFollowups = activeNotifications.filter((item) => item.type === 'upcoming' || item.type === 'overdue');
+  const totalCount = activeNotifications.length;
+
+  const filteredNotifications = activeNotifications.filter((item) => {
     if (activeTab === 'all') return true;
     if (activeTab === 'interested') return item.type === 'interested';
     if (activeTab === 'followups') return item.type === 'upcoming' || item.type === 'overdue';
@@ -199,19 +256,34 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
           <div className="flex items-center gap-2">
             <h4 className="font-semibold text-sm flex items-center gap-1.5">
               Notifications
-              {totalCount > 0 && (
+              {totalCount > 0 ? (
                 <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 text-[10px] font-bold">
                   {totalCount}
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 text-[10px] font-bold">
+                  0
                 </Badge>
               )}
             </h4>
           </div>
           <div className="flex items-center gap-1.5">
+            {activeNotifications.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearAll}
+                className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 px-2 py-1 rounded hover:bg-destructive/10"
+                title="Clear all active notifications"
+              >
+                <Trash2 className="h-3 w-3" />
+                <span>Clear messages</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
                 soundService.playPreset(selectedSound);
-                toast.info(`Playing sound: ${SOUND_PRESETS.find((p) => p.id === selectedSound)?.name || 'Chime'} 🔔`);
+                toast.info(`Playing sound: ${SOUND_PRESETS.find((p) => p.id === selectedSound)?.name || 'Chime'} 🔔`, { duration: 2500 });
               }}
               className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 px-2 py-1 rounded bg-secondary/70 hover:bg-secondary transition-colors"
               title="Test current alert sound"
@@ -219,15 +291,6 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
               <Volume2 className="h-3.5 w-3.5 text-primary" />
               <span>Test Sound</span>
             </button>
-            {overdueFollowUps.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearAllOverdue}
-                className="text-xs text-muted-foreground hover:text-destructive transition-colors px-1 py-1"
-              >
-                Clear all
-              </button>
-            )}
           </div>
         </div>
 
@@ -353,9 +416,25 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
               </div>
             </div>
           ) : visibleNotifications.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              No notifications
-            </p>
+            <div className="py-8 px-4 text-center space-y-2">
+              <div className="mx-auto h-9 w-9 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div className="text-xs font-semibold text-foreground">All caught up!</div>
+              <p className="text-[11px] text-muted-foreground max-w-[240px] mx-auto">
+                No active notifications right now.
+              </p>
+              {clearedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={handleRestoreCleared}
+                  className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Restore cleared ({clearedIds.size})
+                </button>
+              )}
+            </div>
           ) : (
             <div className="divide-y">
               {visibleNotifications.map((item) => {
@@ -363,7 +442,7 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-start gap-2.5 px-3.5 py-2.5 transition-colors ${
+                    className={`group relative flex items-start gap-2.5 px-3.5 py-2.5 transition-colors ${
                       item.type === 'interested'
                         ? 'bg-amber-500/5 hover:bg-amber-500/10'
                         : item.type === 'overdue'
@@ -390,7 +469,7 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center justify-between gap-1.5 pr-5">
                         <span className="truncate text-xs font-semibold text-foreground">
                           {item.title}
                         </span>
@@ -436,6 +515,17 @@ export function NotificationBell({ leads, currentUser, onUpdateLead }: Notificat
                         </div>
                       )}
                     </div>
+
+                    {/* Small X dismiss button on top-right */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDismissOne(item.id, e)}
+                      className="absolute top-2 right-2 h-5 w-5 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors opacity-70 group-hover:opacity-100"
+                      title="Dismiss notification"
+                      aria-label="Dismiss notification"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </div>
                 );
               })}

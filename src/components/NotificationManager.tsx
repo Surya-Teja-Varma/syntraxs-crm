@@ -57,10 +57,10 @@ export function NotificationManager({ leads, currentUser, onUpdateLead }: Notifi
                     // 1. Play real-time notification sound chime
                     playNotificationSound(0.5);
 
-                    // 2. High-visibility in-app toast
+                    // 2. High-visibility in-app toast (auto-dismisses in 3s)
                     toast.success(`💡 Client Interested: ${compName}`, {
                         description: `${repName} marked ${clientName} (${compName}) as Interested!`,
-                        duration: 9000,
+                        duration: 3000,
                     });
 
                     // 3. Desktop browser notification

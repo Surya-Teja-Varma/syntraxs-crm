@@ -328,6 +328,7 @@ export function AdminDashboard({
             <TabsTrigger value="overview" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Overview</TabsTrigger>
             <TabsTrigger value="leads" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Lead Management</TabsTrigger>
             <TabsTrigger value="team" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Team Performance</TabsTrigger>
+            <TabsTrigger value="interested" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Interested Clients</TabsTrigger>
             <TabsTrigger value="revenue" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Revenue Analytics</TabsTrigger>
             <TabsTrigger value="targets" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Targets</TabsTrigger>
             <TabsTrigger value="reports" className="flex-1 min-w-0 text-sm sm:text-base font-medium">Reports</TabsTrigger>
@@ -489,6 +490,83 @@ export function AdminDashboard({
               targets={targets}
               activities={activities}
             />
+          </TabsContent>
+
+          <TabsContent value="interested" className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-xl">
+                    <span className="text-2xl">✨</span>
+                    Interested Clients & Leads
+                  </CardTitle>
+                  <CardDescription>
+                    Clients and vendors marked with high interest by the sales team
+                  </CardDescription>
+                </div>
+                <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 font-semibold px-3 py-1 text-xs">
+                  {leads.filter(l => l.status === 'interested').length} Interested Leads
+                </Badge>
+              </CardHeader>
+              <CardContent>
+                {leads.filter(l => l.status === 'interested').length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground text-sm">
+                    No leads currently marked as Interested.
+                  </div>
+                ) : (
+                  <div className="divide-y rounded-lg border">
+                    {leads
+                      .filter(l => l.status === 'interested')
+                      .sort((a, b) => {
+                        const tA = a.interestedAt ? new Date(a.interestedAt).getTime() : 0;
+                        const tB = b.interestedAt ? new Date(b.interestedAt).getTime() : 0;
+                        return tB - tA;
+                      })
+                      .map((lead) => (
+                        <div key={lead.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-muted/40 transition-colors">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-foreground text-base">
+                                {lead.companyName || 'Unknown Company'}
+                              </span>
+                              <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-700 border-amber-300">
+                                Interested
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Contact: <span className="text-foreground font-medium">{lead.contactName}</span>
+                              {lead.phone && <span> • 📞 {lead.phone}</span>}
+                              {lead.email && <span> • ✉️ {lead.email}</span>}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Marked by <span className="font-medium text-foreground">{lead.interestedByName || lead.assignedToName || 'Sales Rep'}</span>
+                              {lead.interestedAt && (
+                                <span> on {new Date(lead.interestedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className="text-xs text-muted-foreground">Value</span>
+                              <div className="font-bold text-foreground">₹{(lead.value || 0).toLocaleString()}</div>
+                            </div>
+                            {lead.phone && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => window.open(`tel:${lead.phone}`)}
+                                className="gap-1.5"
+                              >
+                                📞 Call
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="revenue">
